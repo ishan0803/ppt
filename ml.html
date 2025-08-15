@@ -1,0 +1,1670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MapReduce in Machine Learning</title>
+    
+    <!-- External Libraries: Tailwind CSS for styling, Chart.js for charts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        /* * =================================================================================
+         * Main Presentation Styles
+         * =================================================================================
+         */
+        :root {
+            --bg-color: #0a0f1f;
+            --text-color: #e0e0e0;
+            --primary-color: #00f2ea;
+            --secondary-color: #ff4d9e;
+            --accent-color: #f2b705;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Basic setup */
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100%;
+            width: 100%;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Presentation container */
+        main {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Slide base styles */
+        .slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4rem 5%;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateX(50px);
+            transition: opacity 0.6s ease-in-out, transform 0.6s ease-in-out, visibility 0.6s;
+            background-color: var(--bg-color);
+        }
+
+        /* Slide visibility and transitions */
+        .slide.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(0);
+            z-index: 1;
+        }
+        .slide.prev {
+            transform: translateX(-50px);
+        }
+
+        /* Typography */
+        h1 { font-size: clamp(2.5rem, 6vw, 4.5rem); font-weight: 900; color: white; }
+        h2 { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 700; color: var(--primary-color); }
+        h3 { font-size: clamp(1.4rem, 3.5vw, 2.4rem); font-weight: 600; color: white; }
+        p { font-size: clamp(0.9rem, 1.5vw, 1.2rem); max-width: 80ch; line-height: 1.6; }
+        .subtitle { color: #a0a0a0; font-size: clamp(1rem, 2vw, 1.5rem); }
+
+        /* Navigation bar */
+        .presentation-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            z-index: 100;
+            background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            transition: opacity 0.3s ease;
+        }
+        .presentation-nav:hover {
+            opacity: 1 !important;
+        }
+        .nav-controls button, .nav-controls a {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 0.5rem 1rem;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .nav-controls button:hover, .nav-controls a:hover {
+            background-color: var(--primary-color);
+            color: var(--bg-color);
+            border-color: var(--primary-color);
+        }
+        .nav-controls button svg, .nav-controls a svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Slide number and thumbnails */
+        .slide-counter {
+            position: relative;
+        }
+        .slide-thumbnails {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 1rem;
+            background: rgba(10, 15, 31, 0.95);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.5rem;
+            max-height: 40vh;
+            overflow-y: auto;
+            backdrop-filter: blur(10px);
+            width: 300px;
+        }
+        .slide-counter:hover .slide-thumbnails {
+            display: block;
+        }
+        .thumbnail-item {
+            padding: 0.5rem 0.75rem;
+            cursor: pointer;
+            border-radius: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .thumbnail-item:hover, .thumbnail-item.active-thumb {
+            background-color: var(--primary-color);
+            color: var(--bg-color);
+        }
+        .thumbnail-item small {
+            opacity: 0.7;
+            margin-right: 0.5rem;
+        }
+
+        /* Custom components */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 2rem;
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        .code-block {
+            background-color: #011627;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+            overflow-x: auto;
+            position: relative;
+            color: #d6deeb;
+        }
+        .code-block .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: all 0.2s ease;
+        }
+        .code-block:hover .copy-btn {
+            opacity: 1;
+        }
+        .code-block .copy-btn:hover {
+            background: var(--primary-color);
+            color: var(--bg-color);
+        }
+        .code-block .kw { color: #c792ea; } /* Keyword */
+        .code-block .fn { color: #82aaff; } /* Function */
+        .code-block .cm { color: #637777; font-style: italic; } /* Comment */
+        .code-block .st { color: #c3e88d; } /* String */
+
+        /* Custom animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.8s ease-out forwards;
+        }
+        .stagger-children > * {
+            opacity: 0;
+            animation: fadeIn 0.8s ease-out forwards;
+        }
+
+        /* Responsive table */
+        .responsive-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .responsive-table th, .responsive-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .responsive-table th {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+        .responsive-table tr:last-child td {
+            border-bottom: none;
+        }
+        .responsive-table td:nth-child(2) { color: #a0a0a0; }
+
+        /* Specific slide layouts */
+        .title-slide { text-align: center; }
+        .two-column { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; width: 100%; align-items: center; }
+        .three-column { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; width: 100%; align-items: start; }
+        
+        /* SVG Diagram Styles */
+        .diagram-svg {
+            max-width: 100%;
+            height: auto;
+            overflow: visible;
+        }
+        .diagram-svg .box { fill: var(--card-bg); stroke: var(--primary-color); stroke-width: 1.5; }
+        .diagram-svg .box-alt { fill: var(--card-bg); stroke: var(--secondary-color); stroke-width: 1.5; }
+        .diagram-svg .text { fill: var(--text-color); font-size: 14px; font-family: 'Inter', sans-serif; }
+        .diagram-svg .text-sm { font-size: 12px; }
+        .diagram-svg .text-title { font-size: 16px; font-weight: bold; fill: white; }
+        .diagram-svg .arrow { stroke: var(--accent-color); stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+        .diagram-svg .arrow-data { stroke: #82aaff; stroke-width: 1.5; stroke-dasharray: 4 4; fill: none; }
+        
+        /* Animated arrows for shuffle */
+        @keyframes shuffle-flow {
+            from { stroke-dashoffset: 200; }
+            to { stroke-dashoffset: 0; }
+        }
+        .shuffle-arrow {
+            stroke-dasharray: 200;
+            animation: shuffle-flow 2s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+
+    <main id="presentation-root">
+        <!-- 
+         * =================================================================================
+         * SECTION A: THE GENESIS OF MAPREDUCE
+         * =================================================================================
+         -->
+
+        <!-- A1: Title Slide -->
+        <section class="slide title-slide active" data-title="Title">
+            <div class="absolute inset-0 z-0" id="constellation-bg"></div>
+            <div class="z-10 text-center stagger-children">
+                <h1 class="text-5xl md:text-7xl font-black mb-4 bg-clip-text text-transparent bg-gradient-to-r from-primary-color to-secondary-color">MapReduce</h1>
+                <p class="subtitle text-xl md:text-3xl mb-2">A Scalable Framework for Machine Learning on Big Data</p>
+                <p class="text-lg md:text-xl text-gray-400 max-w-4xl mx-auto mb-12">Taming the Deluge of Data with Distributed Computing</p>
+                <p class="text-lg text-gray-300">Presenter</p>
+            </div>
+        </section>
+
+        <!-- A2: The Big Data Imperative -->
+        <section class="slide" data-title="The Big Data Imperative">
+            <h2 class="mb-12 text-center">Why We Needed a New Paradigm</h2>
+            <div class="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                <div class="stagger-children space-y-10">
+                    <div class="three-column text-center">
+                        <div class="card p-4" style="animation-delay: 0.1s;">
+                            <h3 class="text-secondary-color text-2xl mb-2">Volume</h3>
+                            <p class="text-sm">Exponential data growth from terabytes to exabytes.</p>
+                        </div>
+                        <div class="card p-4" style="animation-delay: 0.2s;">
+                            <h3 class="text-secondary-color text-2xl mb-2">Velocity</h3>
+                            <p class="text-sm">High-speed data streams requiring real-time processing.</p>
+                        </div>
+                        <div class="card p-4" style="animation-delay: 0.3s;">
+                            <h3 class="text-secondary-color text-2xl mb-2">Variety</h3>
+                            <p class="text-sm">Unstructured data from logs, text, images, and more.</p>
+                        </div>
+                    </div>
+                    <ul class="list-disc list-inside space-y-3 text-lg pl-4">
+                        <li><b>Statistical Hurdles:</b> Traditional single-machine tools couldn't cope.</li>
+                        <li><b>Noise & Spurious Correlations:</b> More data means higher risk of finding meaningless patterns.</li>
+                        <li><b>Computational Ceilings:</b> Processing time became a critical bottleneck.</li>
+                    </ul>
+                </div>
+                <div class="relative h-80 md:h-96">
+                    <canvas id="datasetGrowthChart"></canvas>
+                    <p class="text-xs text-center mt-2 text-gray-500">* Source: Synthetic / Illustrative</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- A3: The Solution: Distributed Computing -->
+        <section class="slide" data-title="The Solution: Distributed Computing">
+            <h2 class="mb-12 text-center">Harnessing the Power of Many</h2>
+            <div class="w-full max-w-7xl">
+                <svg viewBox="0 0 800 400" class="diagram-svg">
+                    <defs>
+                        <g id="server-node">
+                            <rect x="0" y="0" width="120" height="70" rx="8" class="box" />
+                            <circle cx="20" cy="15" r="5" fill="lightgreen" />
+                            <rect x="40" y="12" width="60" height="5" fill="rgba(255,255,255,0.3)" />
+                            <rect x="15" y="30" width="90" height="30" fill="rgba(255,255,255,0.1)" />
+                            <text x="60" y="50" text-anchor="middle" class="text-sm">Worker Node</text>
+                        </g>
+                    </defs>
+                    <!-- Nodes -->
+                    <use href="#server-node" x="340" y="20" />
+                    <text x="400" y="110" text-anchor="middle" class="text">Master Node</text>
+
+                    <use href="#server-node" x="50" y="250" />
+                    <use href="#server-node" x="250" y="250" />
+                    <use href="#server-node" x="450" y="250" />
+                    <use href="#server-node" x="650" y="250" />
+                    
+                    <!-- Lines -->
+                    <path d="M400 90 L110 250" class="arrow-data" />
+                    <path d="M400 90 L310 250" class="arrow-data" />
+                    <path d="M400 90 L510 250" class="arrow-data" />
+                    <path d="M400 90 L710 250" class="arrow-data" />
+                    
+                    <!-- Annotations -->
+                    <text x="180" y="160" class="text-title">Parallel Processing</text>
+                    <text x="180" y="180" class="text-sm" fill="#a0a0a0">Tasks are split across many nodes.</text>
+                    
+                    <text x="620" y="160" class="text-title">Data Locality</text>
+                    <text x="620" y="180" class="text-sm" fill="#a0a0a0">Computation moves to the data.</text>
+                    
+                    <text x="400" y="360" text-anchor="middle" class="text-title">Fault Tolerance</text>
+                    <text x="400" y="380" text-anchor="middle" class="text-sm" fill="#a0a0a0">Master re-assigns tasks if a node fails.</text>
+                </svg>
+            </div>
+        </section>
+
+        <!-- A4: Introducing MapReduce: A Functional Abstraction -->
+        <section class="slide" data-title="MapReduce: A Functional Abstraction">
+            <h2 class="mb-12 text-center">Simplifying Complexity</h2>
+            <div class="w-full max-w-4xl text-center">
+                <p class="mb-12">MapReduce provides a simple programming model that hides the messy details of parallelization, fault-tolerance, data distribution, and load balancing.</p>
+                <svg viewBox="0 0 600 350" class="diagram-svg">
+                    <rect x="50" y="20" width="500" height="80" rx="10" class="box" />
+                    <text x="300" y="65" text-anchor="middle" class="text-title">Programmer (You)</text>
+                    
+                    <rect x="50" y="140" width="500" height="80" rx="10" class="box-alt" />
+                    <text x="300" y="185" text-anchor="middle" class="text-title">MapReduce Runtime</text>
+                    
+                    <rect x="50" y="260" width="500" height="80" rx="10" class="box" />
+                    <text x="300" y="305" text-anchor="middle" class="text-title">Distributed Storage & Network</text>
+
+                    <path d="M300 100 L300 140" stroke-width="2" stroke="white" marker-end="url(#arrowhead)"/>
+                    <path d="M300 220 L300 260" stroke-width="2" stroke="white" marker-end="url(#arrowhead)"/>
+                </svg>
+            </div>
+        </section>
+        
+        <!-- A5: The Core Components: Map and Reduce -->
+        <section class="slide" data-title="Core Components: Map & Reduce">
+            <h2 class="mb-12 text-center">The Two Pillars of the Paradigm</h2>
+            <div class="two-column max-w-7xl">
+                <div class="card text-center">
+                    <h3 class="text-primary-color text-2xl mb-4">Map</h3>
+                    <p class="mb-4">Processes each input record (key/value pair) to generate intermediate key/value pairs. All map tasks are independent and can run in parallel.</p>
+                    <svg viewBox="0 0 300 150" class="diagram-svg bg-gray-900/50 rounded-lg">
+                        <text x="20" y="30" class="text">Input: "the quick brown fox"</text>
+                        <path d="M70 50 L70 90" class="arrow" />
+                        <text x="90" y="75" class="text-title">Map</text>
+                        <text x="20" y="120" class="text st">("the", 1), ("quick", 1), ...</text>
+                    </svg>
+                </div>
+                <div class="card text-center">
+                    <h3 class="text-secondary-color text-2xl mb-4">Reduce</h3>
+                    <p class="mb-4">Processes all intermediate values associated with the same key to produce the final output. It aggregates, summarizes, or transforms the data.</p>
+                     <svg viewBox="0 0 300 150" class="diagram-svg bg-gray-900/50 rounded-lg">
+                        <text x="20" y="30" class="text">Input: ("the", [1, 1, 1])</text>
+                        <path d="M70 50 L70 90" class="arrow" />
+                        <text x="90" y="75" class="text-title">Reduce</text>
+                        <text x="20" y="120" class="text st">("the", 3)</text>
+                    </svg>
+                </div>
+            </div>
+        </section>
+
+        <!-- A6: Library Book Count Analogy -->
+        <section class="slide" data-title="Library Analogy">
+            <h2 class="mb-12 text-center">Understanding MapReduce Intuitively</h2>
+            <div class="w-full max-w-6xl card">
+                <svg viewBox="0 0 800 400" class="diagram-svg">
+                    <!-- Mappers -->
+                    <g transform="translate(50, 50)">
+                        <rect width="150" height="80" rx="8" class="box" />
+                        <text x="75" y="45" text-anchor="middle" class="text-title">Mapper 1 (Floor 1)</text>
+                        <text x="75" y="100" text-anchor="middle" class="text">Counts: "Sci-Fi: 50"</text>
+                    </g>
+                    <g transform="translate(50, 170)">
+                        <rect width="150" height="80" rx="8" class="box" />
+                        <text x="75" y="45" text-anchor="middle" class="text-title">Mapper 2 (Floor 2)</text>
+                        <text x="75" y="100" text-anchor="middle" class="text">Counts: "Sci-Fi: 30"</text>
+                    </g>
+                    <g transform="translate(50, 290)">
+                        <rect width="150" height="80" rx="8" class="box" />
+                        <text x="75" y="45" text-anchor="middle" class="text-title">Mapper 3 (Floor 3)</text>
+                        <text x="75" y="100" text-anchor="middle" class="text">Counts: "Sci-Fi: 25"</text>
+                    </g>
+                    <!-- Shuffle -->
+                    <text x="350" y="30" text-anchor="middle" class="text-title">Shuffle & Sort</text>
+                    <path d="M220 90 L480 210" class="arrow shuffle-arrow" style="animation-delay: 0s;"/>
+                    <path d="M220 210 L480 210" class="arrow shuffle-arrow" style="animation-delay: 0.5s;"/>
+                    <path d="M220 330 L480 210" class="arrow shuffle-arrow" style="animation-delay: 1s;"/>
+                    
+                    <!-- Reducer -->
+                    <g transform="translate(550, 170)">
+                        <rect width="200" height="80" rx="8" class="box-alt" />
+                        <text x="100" y="35" text-anchor="middle" class="text-title">Reducer</text>
+                        <text x="100" y="60" text-anchor="middle" class="text">Input: ("Sci-Fi", [50,30,25])</text>
+                    </g>
+                    <!-- Output -->
+                    <path d="M650 250 L650 300" class="arrow" />
+                    <text x="650" y="330" text-anchor="middle" class="text-title">Final Result: 105</text>
+                </svg>
+            </div>
+        </section>
+
+        <!-- 
+         * =================================================================================
+         * SECTION B: THE ENGINE ROOM
+         * =================================================================================
+         -->
+        <section class="slide title-slide" data-title="Section B: Engine Room">
+            <h2 class="text-2xl text-gray-400 mb-4">Section B</h2>
+            <h1 class="text-6xl text-center">The Engine Room</h1>
+            <p class="subtitle text-2xl">A Deep Dive into the MapReduce Architecture</p>
+        </section>
+
+        <!-- B2: Complete MapReduce Data Flow -->
+        <section class="slide" data-title="Complete Data Flow">
+            <h2 class="mb-8 text-center">From Input to Output</h2>
+            <div class="w-full max-w-7xl">
+                <svg viewBox="0 0 1200 200" class="diagram-svg">
+                    <g>
+                        <rect x="0" y="75" width="150" height="50" rx="5" class="box"/>
+                        <text x="75" y="105" text-anchor="middle" class="text">Input Splits</text>
+                    </g>
+                    <path d="M150 100 L230 100" class="arrow"/>
+                    <g>
+                        <rect x="230" y="75" width="150" height="50" rx="5" class="box"/>
+                        <text x="305" y="105" text-anchor="middle" class="text">Map</text>
+                        <text x="305" y="140" text-anchor="middle" class="text-sm text-gray-400">~15ms</text>
+                    </g>
+                    <path d="M380 100 L460 100" class="arrow"/>
+                    <g>
+                        <rect x="460" y="75" width="280" height="50" rx="5" class="box-alt"/>
+                        <text x="600" y="105" text-anchor="middle" class="text">Shuffle & Sort</text>
+                        <text x="600" y="140" text-anchor="middle" class="text-sm text-gray-400">~120ms (Network Heavy)</text>
+                    </g>
+                    <path d="M740 100 L820 100" class="arrow"/>
+                    <g>
+                        <rect x="820" y="75" width="150" height="50" rx="5" class="box"/>
+                        <text x="895" y="105" text-anchor="middle" class="text">Reduce</text>
+                        <text x="895" y="140" text-anchor="middle" class="text-sm text-gray-400">~25ms</text>
+                    </g>
+                    <path d="M970 100 L1050 100" class="arrow"/>
+                    <g>
+                        <rect x="1050" y="75" width="150" height="50" rx="5" class="box"/>
+                        <text x="1125" y="105" text-anchor="middle" class="text">Output</text>
+                    </g>
+                </svg>
+            </div>
+        </section>
+
+        <!-- B3: Shuffle & Sort -->
+        <section class="slide" data-title="Shuffle & Sort">
+            <h2 class="mb-12 text-center">The Heart of MapReduce</h2>
+            <div class="two-column max-w-7xl">
+                <div class="card">
+                    <h3 class="text-primary-color text-2xl mb-4 text-center">Map Side</h3>
+                    <svg viewBox="0 0 300 250" class="diagram-svg">
+                        <text x="150" y="20" text-anchor="middle" class="text-title">Map Output</text>
+                        <path d="M150 30 L150 60" class="arrow"/>
+                        <rect x="50" y="60" width="200" height="40" rx="5" class="box"/>
+                        <text x="150" y="85" text-anchor="middle" class="text">In-Memory Buffer</text>
+                        <path d="M150 100 L150 130" class="arrow"/>
+                        <rect x="50" y="130" width="200" height="40" rx="5" class="box"/>
+                        <text x="150" y="155" text-anchor="middle" class="text">Partition & Spill to Disk</text>
+                        <path d="M150 170 L150 200" class="arrow"/>
+                        <text x="150" y="220" text-anchor="middle" class="text">To Reducers</text>
+                    </svg>
+                </div>
+                <div class="card">
+                    <h3 class="text-secondary-color text-2xl mb-4 text-center">Reduce Side</h3>
+                    <svg viewBox="0 0 300 250" class="diagram-svg">
+                        <text x="150" y="20" text-anchor="middle" class="text-title">From Mappers</text>
+                        <path d="M150 30 L150 60" class="arrow"/>
+                        <rect x="50" y="60" width="200" height="40" rx="5" class="box-alt"/>
+                        <text x="150" y="85" text-anchor="middle" class="text">Shuffle (Copy Data)</text>
+                        <path d="M150 100 L150 130" class="arrow"/>
+                        <rect x="50" y="130" width="200" height="40" rx="5" class="box-alt"/>
+                        <text x="150" y="155" text-anchor="middle" class="text">Merge & Sort</text>
+                        <path d="M150 170 L150 200" class="arrow"/>
+                        <text x="150" y="220" text-anchor="middle" class="text">To Reduce Function</text>
+                    </svg>
+                </div>
+            </div>
+        </section>
+
+        <!-- B4: Combiners & Partitioners -->
+        <section class="slide" data-title="Combiners & Partitioners">
+            <h2 class="mb-12 text-center">Improving Efficiency</h2>
+            <div class="two-column max-w-7xl">
+                <div class="text-center">
+                    <h3 class="text-xl text-accent-color mb-4">Combiner: Pre-aggregation on the Map side</h3>
+                    <p class="mb-4">Reduces the amount of data sent over the network during the shuffle phase.</p>
+                    <canvas id="combinerChart" class="max-h-64"></canvas>
+                    <p class="text-xs text-center mt-2 text-gray-500">* Source: Synthetic / Illustrative</p>
+                </div>
+                <div class="text-center">
+                    <h3 class="text-xl text-accent-color mb-4">Partitioner: Controls data destination</h3>
+                    <p class="mb-4">Determines which reducer instance will receive a particular intermediate key.</p>
+                    <canvas id="partitionerChart" class="max-h-64"></canvas>
+                    <p class="text-xs text-center mt-2 text-gray-500">* Default is Hash Partitioner</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- B5: Fault Tolerance -->
+        <section class="slide" data-title="Fault Tolerance">
+            <h2 class="mb-12 text-center">Reliability on Unreliable Hardware</h2>
+            <div class="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                <ul class="list-disc list-inside space-y-4 text-lg">
+                    <li><b>Master Node:</b> Tracks status of worker nodes and tasks.</li>
+                    <li><b>Heartbeats:</b> Workers periodically send "I'm alive" signals to the master.</li>
+                    <li><b>Task Failure:</b> If a worker fails, the master re-schedules its tasks on other available nodes.</li>
+                    <li><b>HDFS Replication:</b> Input data is replicated (usually 3x) across the cluster, so data is not lost if a node fails.</li>
+                </ul>
+                <svg viewBox="0 0 400 300" class="diagram-svg">
+                    <rect x="150" y="10" width="100" height="50" rx="5" class="box-alt" />
+                    <text x="200" y="40" text-anchor="middle" class="text">Master</text>
+                    <!-- Workers -->
+                    <rect x="10" y="150" width="100" height="50" rx="5" class="box" />
+                    <text x="60" y="180" text-anchor="middle" class="text">Worker 1</text>
+                    <rect x="150" y="150" width="100" height="50" rx="5" class="box" />
+                    <text x="200" y="180" text-anchor="middle" class="text">Worker 2</text>
+                    <rect x="290" y="150" width="100" height="50" rx="5" class="box" fill="red" />
+                    <text x="340" y="180" text-anchor="middle" class="text">Worker 3 (Failed)</text>
+                    <!-- Heartbeats -->
+                    <path d="M200 60 L60 150" stroke-dasharray="5 5" stroke="lightgreen" stroke-width="1.5"/>
+                    <path d="M200 60 L200 150" stroke-dasharray="5 5" stroke="lightgreen" stroke-width="1.5"/>
+                    <!-- Reschedule -->
+                    <path d="M200 60 Q 270 100 200 150" class="arrow" stroke="orange"/>
+                    <text x="260" y="100" class="text" fill="orange">Reschedule Task</text>
+                </svg>
+            </div>
+        </section>
+
+        <!-- B6: Speculative Execution -->
+        <section class="slide" data-title="Speculative Execution">
+            <h2 class="mb-12 text-center">No Task Left Behind</h2>
+            <div class="two-column max-w-7xl">
+                <div class="text-center">
+                    <p class="mb-4">If a task is running slower than others (a "straggler"), the master may launch a duplicate, speculative copy on another machine. It takes the result of whichever finishes first.</p>
+                    <svg viewBox="0 0 400 200" class="diagram-svg">
+                        <text x="200" y="20" text-anchor="middle" class="text-title">Job Progress</text>
+                        <!-- Normal tasks -->
+                        <rect x="20" y="50" width="360" height="20" fill="#333" rx="10"/>
+                        <rect x="20" y="50" width="340" height="20" fill="var(--primary-color)" rx="10"/>
+                        <!-- Straggler -->
+                        <rect x="20" y="90" width="360" height="20" fill="#333" rx="10"/>
+                        <rect x="20" y="90" width="150" height="20" fill="orange" rx="10"/>
+                        <text x="100" y="120" class="text-sm">Straggler Task</text>
+                        <!-- Speculative copy -->
+                        <rect x="20" y="140" width="360" height="20" fill="#333" rx="10"/>
+                        <rect x="160" y="140" width="100" height="20" fill="var(--accent-color)" rx="10"/>
+                        <text x="210" y="170" class="text-sm">Speculative Copy (Finishes First)</text>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-xl text-center mb-4">Tradeoff: Latency vs. Resources</h3>
+                    <canvas id="speculativeChart" class="max-h-80"></canvas>
+                    <p class="text-xs text-center mt-2 text-gray-500">* Source: Synthetic / Illustrative</p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 
+         * =================================================================================
+         * SECTION C: FROM THEORY TO PRACTICE
+         * =================================================================================
+         -->
+        <section class="slide title-slide" data-title="Section C: Theory to Practice">
+            <h2 class="text-2xl text-gray-400 mb-4">Section C</h2>
+            <h1 class="text-6xl text-center">From Theory to Practice</h1>
+            <p class="subtitle text-2xl">Implementing ML with MapReduce</p>
+        </section>
+
+        <!-- C2: Word Count Example -->
+        <section class="slide" data-title="Word Count Example">
+            <h2 class="mb-8 text-center">The "Hello, World!" of MapReduce</h2>
+            <div class="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                <svg viewBox="0 0 500 400" class="diagram-svg">
+                    <text x="250" y="20" text-anchor="middle" class="text-title">Input: "see jane run. run jane run."</text>
+                    <path d="M250 30 L250 60" class="arrow"/>
+                    <rect x="150" y="60" width="200" height="50" rx="5" class="box" />
+                    <text x="250" y="90" text-anchor="middle" class="text">Map: Tokenize & Emit (word, 1)</text>
+                    <path d="M250 110 L250 140" class="arrow"/>
+                    <text x="250" y="160" text-anchor="middle" class="text-sm st">("see",1), ("jane",1), ("run",1), ("run",1), ...</text>
+                    <path d="M250 180 L250 210" class="arrow"/>
+                    <rect x="125" y="210" width="250" height="50" rx="5" class="box-alt" />
+                    <text x="250" y="240" text-anchor="middle" class="text">Shuffle: Group by Key</text>
+                    <path d="M250 260 L250 290" class="arrow"/>
+                    <text x="250" y="310" text-anchor="middle" class="text-sm st">("jane",[1,1]), ("run",[1,1,1]), ...</text>
+                    <path d="M250 320 L250 350" class="arrow"/>
+                    <rect x="150" y="350" width="200" height="50" rx="5" class="box" />
+                    <text x="250" y="380" text-anchor="middle" class="text">Reduce: Sum values</text>
+                </svg>
+                <div>
+                    <h3 class="text-center mb-4">Top 10 Word Frequencies</h3>
+                    <canvas id="wordCountChart" class="max-h-96"></canvas>
+                    <p class="text-xs text-center mt-2 text-gray-500">* From a synthetic text corpus</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- C3: Pseudo-code -->
+        <section class="slide" data-title="Pseudo-code">
+            <h2 class="mb-8 text-center">A Look at the Code</h2>
+            <div class="two-column max-w-7xl">
+                <div class="code-block">
+                    <button class="copy-btn" data-target="mapper-code">Copy</button>
+                    <pre id="mapper-code"><code><span class="kw">class</span> <span class="fn">Mapper</span>:
+  <span class="kw">def</span> <span class="fn">map</span>(self, key, value):
+    <span class="cm"># value: one line of text</span>
+    <span class="kw">for</span> word <span class="kw">in</span> value.split():
+      word = word.lower().strip(PUNCTUATION)
+      <span class="kw">if</span> word:
+        emit(word, 1)</code></pre>
+                </div>
+                <div class="code-block">
+                    <button class="copy-btn" data-target="reducer-code">Copy</button>
+                    <pre id="reducer-code"><code><span class="kw">class</span> <span class="fn">Reducer</span>:
+  <span class="kw">def</span> <span class="fn">reduce</span>(self, key, values):
+    <span class="cm"># key: a word</span>
+    <span class="cm"># values: a list of 1s</span>
+    total = 0
+    <span class="kw">for</span> v <span class="kw">in</span> values:
+      total += v
+    emit(key, total)</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- C4: The Summation Paradigm -->
+        <section class="slide" data-title="The Summation Paradigm">
+            <h2 class="mb-12 text-center">Why Word Count Matters for Machine Learning</h2>
+            <p class="text-center max-w-4xl mx-auto mb-12">The pattern of "mapping" over data points to calculate partial results and "reducing" them by summing is fundamental to many data-parallel ML algorithms.</p>
+            <div class="three-column max-w-7xl text-center">
+                <div class="card">
+                    <h3 class="text-primary-color text-2xl mb-2">Gradient Descent</h3>
+                    <p>Map computes gradients for a mini-batch; Reduce sums gradients to update model weights.</p>
+                </div>
+                <div class="card">
+                    <h3 class="text-primary-color text-2xl mb-2">Naive Bayes</h3>
+                    <p>Map emits counts for features and classes; Reduce sums these counts to calculate probabilities.</p>
+                </div>
+                <div class="card">
+                    <h3 class="text-primary-color text-2xl mb-2">K-Means Clustering</h3>
+                    <p>Map assigns points to nearest centroid; Reduce computes the new centroid by averaging points.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- C5: General ML Pattern in MapReduce -->
+        <section class="slide" data-title="General ML Pattern">
+            <h2 class="mb-12 text-center">A Reusable Template for Data-Parallel ML</h2>
+            <div class="w-full max-w-5xl">
+                <svg viewBox="0 0 600 350" class="diagram-svg">
+                    <rect x="200" y="20" width="200" height="60" rx="10" class="box-alt" />
+                    <text x="300" y="55" text-anchor="middle" class="text-title">Driver Program</text>
+
+                    <path d="M300 80 L300 120" stroke="white" stroke-width="2" />
+                    <path d="M150 200 L300 120" stroke="white" stroke-width="2" />
+                    <text x="210" y="125" class="text">Start Job</text>
+                    
+                    <rect x="50" y="200" width="500" height="120" rx="10" class="box" />
+                    <text x="300" y="225" text-anchor="middle" class="text-title">MapReduce Job (One Iteration)</text>
+                    <text x="150" y="270" text-anchor="middle" class="text">Map: Compute partial results</text>
+                    <text x="450" y="270" text-anchor="middle" class="text">Reduce: Aggregate results</text>
+                    <path d="M250 270 L350 270" class="arrow" />
+
+                    <path d="M450 200 L300 120" stroke="white" stroke-width="2" marker-end="url(#arrowhead)"/>
+                    <text x="395" y="155" class="text">Return Result</text>
+                </svg>
+            </div>
+        </section>
+        
+        <!-- C6: The Iteration Challenge -->
+        <section class="slide" data-title="The Iteration Challenge">
+            <h2 class="mb-12 text-center">Handling Multi-Step Algorithms</h2>
+            <div class="two-column max-w-7xl">
+                <div>
+                    <p class="mb-4">Many ML algorithms (like K-Means or Gradient Descent) are iterative. In MapReduce, each iteration requires a separate, full MapReduce job.</p>
+                    <ul class="list-disc list-inside space-y-2">
+                        <li>The driver program runs a loop.</li>
+                        <li>In each loop, it configures and submits a new job.</li>
+                        <li>The output of one job (written to HDFS) becomes the input for the next.</li>
+                        <li>This incurs significant overhead due to repeated data loading from disk.</li>
+                    </ul>
+                </div>
+                <div>
+                    <canvas id="iterationCostChart" class="max-h-96"></canvas>
+                    <p class="text-xs text-center mt-2 text-gray-500">* Source: Synthetic / Illustrative</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- C7: Iteration Bottleneck -->
+        <section class="slide" data-title="Iteration Bottleneck">
+            <h2 class="mb-12 text-center">A Functional but Inefficient Approach</h2>
+            <div class="w-full max-w-5xl">
+                 <svg viewBox="0 0 600 350" class="diagram-svg">
+                    <text x="300" y="30" text-anchor="middle" class="text-title">Iteration N</text>
+                    <rect x="150" y="50" width="300" height="80" rx="10" class="box" />
+                    <text x="300" y="90" text-anchor="middle" class="text">MapReduce Job</text>
+                    
+                    <path d="M300 130 L300 170" class="arrow" />
+                    <text x="350" y="155" class="text text-sm text-red-400">Write to Disk</text>
+                    
+                    <rect x="100" y="170" width="400" height="60" rx="5" class="box-alt" />
+                    <text x="300" y="205" text-anchor="middle" class="text">HDFS (Distributed Disk)</text>
+                    
+                    <path d="M300 230 L300 270" class="arrow" />
+                    <text x="350" y="255" class="text text-sm text-red-400">Read from Disk</text>
+                    
+                    <text x="300" y="290" text-anchor="middle" class="text-title">Iteration N+1</text>
+                    <rect x="150" y="300" width="300" height="80" rx="10" class="box" />
+                    <text x="300" y="340" text-anchor="middle" class="text">MapReduce Job</text>
+                </svg>
+            </div>
+        </section>
+
+        <!-- 
+         * =================================================================================
+         * SECTION D: CORE ALGORITHMS IN FOCUS
+         * =================================================================================
+         -->
+        <section class="slide title-slide" data-title="Section D: Core Algorithms">
+            <h2 class="text-2xl text-gray-400 mb-4">Section D</h2>
+            <h1 class="text-6xl text-center">Core Algorithms in Focus</h1>
+            <p class="subtitle text-2xl">K-Means, Naive Bayes, Gradient Descent</p>
+        </section>
+
+        <!-- D2: K-Means -->
+        <section class="slide" data-title="K-Means">
+            <h2 class="mb-8 text-center">Unsupervised Learning with K-Means</h2>
+            <div class="w-full max-w-6xl">
+                <div id="kmeans-animation" class="relative w-full aspect-video bg-gray-900/50 rounded-lg"></div>
+            </div>
+            <div class="w-full max-w-6xl grid grid-cols-4 gap-4 mt-8 text-center">
+                <p>1. Initialize K random centroids.</p>
+                <p>2. <strong>Assign:</strong> Each data point is assigned to its nearest centroid.</p>
+                <p>3. <strong>Update:</strong> Centroids are moved to the average of their assigned points.</p>
+                <p>4. <strong>Iterate:</strong> Repeat Assign/Update until centroids converge.</p>
+            </div>
+        </section>
+
+        <!-- D3: K-Means in MapReduce -->
+        <section class="slide" data-title="K-Means in MapReduce">
+            <h2 class="mb-12 text-center">One Iteration = One MapReduce Job</h2>
+            <div class="w-full max-w-6xl">
+                <svg viewBox="0 0 800 300" class="diagram-svg">
+                    <rect x="0" y="10" width="800" height="50" rx="5" class="box-alt"/>
+                    <text x="400" y="40" text-anchor="middle" class="text">Driver loads current centroids into DistributedCache</text>
+                    
+                    <path d="M150 60 L150 100" class="arrow"/>
+                    <path d="M650 60 L650 100" class="arrow"/>
+
+                    <rect x="50" y="100" width="300" height="150" rx="10" class="box"/>
+                    <text x="200" y="130" text-anchor="middle" class="text-title">Map Task</text>
+                    <text x="200" y="160" text-anchor="middle" class="text-sm">1. Read centroids from Cache.</text>
+                    <text x="200" y="180" text-anchor="middle" class="text-sm">2. For each point, find nearest centroid.</text>
+                    <text x="200" y="200" text-anchor="middle" class="text-sm">3. Emit (&lt;centroid_id&gt;, &lt;point_vector&gt;)</text>
+                    
+                    <path d="M350 175 L450 175" class="arrow"/>
+
+                    <rect x="450" y="100" width="300" height="150" rx="10" class="box"/>
+                    <text x="600" y="130" text-anchor="middle" class="text-title">Reduce Task</text>
+                    <text x="600" y="160" text-anchor="middle" class="text-sm">1. Receives all points for a centroid.</text>
+                    <text x="600" y="180" text-anchor="middle" class="text-sm">2. Computes the mean of all points.</text>
+                    <text x="600" y="200" text-anchor="middle" class="text-sm">3. Emits (&lt;centroid_id&gt;, &lt;new_mean_vector&gt;)</text>
+                </svg>
+            </div>
+        </section>
+        
+        <!-- D4: Naive Bayes -->
+        <section class="slide" data-title="Naive Bayes">
+            <h2 class="mb-12 text-center">Probabilistic Classification with Naive Bayes</h2>
+            <div class="two-column max-w-7xl">
+                <div>
+                    <p class="mb-4">A simple but effective classification algorithm based on Bayes' Theorem with a "naive" assumption of conditional independence between features.</p>
+                    <p class="mb-4">Training involves counting frequencies of features within each class.</p>
+                    <div class="card bg-gray-900/50 p-4 font-mono text-center">P(class | features) ∝ P(class) * Π P(feature_i | class)</div>
+                </div>
+                <div class="card">
+                    <h3 class="text-center mb-4">Example Counts Table</h3>
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-600">
+                                <th class="p-2 text-left">Feature</th>
+                                <th class="p-2 text-center">Count in Class A</th>
+                                <th class="p-2 text-center">Count in Class B</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td class="p-2">word="free"</td><td class="p-2 text-center">150</td><td class="p-2 text-center">5</td></tr>
+                            <tr><td class="p-2">word="money"</td><td class="p-2 text-center">120</td><td class="p-2 text-center">2</td></tr>
+                            <tr><td class="p-2">word="report"</td><td class="p-2 text-center">10</td><td class="p-2 text-center">200</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- D5: Naive Bayes in MapReduce -->
+        <section class="slide" data-title="Naive Bayes in MapReduce">
+            <h2 class="mb-12 text-center">Training in a Single Pass</h2>
+            <div class="w-full max-w-6xl">
+                <svg viewBox="0 0 800 300" class="diagram-svg">
+                    <rect x="50" y="100" width="300" height="150" rx="10" class="box"/>
+                    <text x="200" y="130" text-anchor="middle" class="text-title">Map Task</text>
+                    <text x="200" y="160" text-anchor="middle" class="text-sm">For each document (features, class):</text>
+                    <text x="200" y="180" text-anchor="middle" class="text-sm">Emit (&lt;class&gt;, 1) for class count</text>
+                    <text x="200" y="200" text-anchor="middle" class="text-sm">For each feature:</text>
+                    <text x="200" y="220" text-anchor="middle" class="text-sm">Emit ((&lt;feature&gt;, &lt;class&gt;), 1)</text>
+                    
+                    <path d="M350 175 L450 175" class="arrow"/>
+
+                    <rect x="450" y="100" width="300" height="150" rx="10" class="box"/>
+                    <text x="600" y="130" text-anchor="middle" class="text-title">Reduce Task</text>
+                    <text x="600" y="175" text-anchor="middle" class="text">Simply sums all counts for each key.</text>
+                </svg>
+            </div>
+        </section>
+
+        <!-- D6: Batch Gradient Descent -->
+        <section class="slide" data-title="Batch Gradient Descent">
+            <h2 class="mb-12 text-center">Optimization with Gradient Descent</h2>
+            <div class="two-column max-w-7xl">
+                <div class="flex flex-col justify-center">
+                    <p class="mb-4">An iterative optimization algorithm used to find the minimum of a function. In ML, we use it to minimize the loss function and find the best model parameters (weights).</p>
+                    <p>In batch gradient descent, the gradient is computed over the entire dataset before making a single update to the weights.</p>
+                </div>
+                <div class="card p-4">
+                    <div class="font-mono text-center text-lg">
+                        <p>w = w - η * ∇L(w)</p>
+                        <p class="mt-4">∇L(w) = (1/N) * Σ ∇Lᵢ(w)</p>
+                    </div>
+                    <p class="text-sm text-center mt-4 text-gray-400">The total gradient is the average of gradients from all N data points.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- D7: Gradient Descent in MapReduce -->
+        <section class="slide" data-title="Gradient Descent in MapReduce">
+            <h2 class="mb-12 text-center">One Iteration = One MapReduce Job</h2>
+            <div class="two-column max-w-7xl">
+                <svg viewBox="0 0 400 300" class="diagram-svg">
+                    <rect x="50" y="10" width="300" height="50" rx="5" class="box-alt"/>
+                    <text x="200" y="40" text-anchor="middle" class="text">Driver broadcasts current weights</text>
+                    <path d="M200 60 L200 100" class="arrow"/>
+                    <rect x="50" y="100" width="300" height="80" rx="10" class="box"/>
+                    <text x="200" y="130" text-anchor="middle" class="text-title">Map Task</text>
+                    <text x="200" y="155" text-anchor="middle" class="text-sm">Computes gradient for its data subset</text>
+                    <path d="M200 180 L200 220" class="arrow"/>
+                    <rect x="50" y="220" width="300" height="80" rx="10" class="box"/>
+                    <text x="200" y="250" text-anchor="middle" class="text-title">Reduce Task</text>
+                    <text x="200" y="275" text-anchor="middle" class="text-sm">Sums all partial gradients</text>
+                </svg>
+                <div class="flex flex-col justify-center">
+                    <h3 class="text-center mb-4">Per-Iteration Cost</h3>
+                    <p class="text-center text-sm mb-4">The driver receives the final summed gradient, updates the weights, and starts the next iteration.</p>
+                    <canvas id="gradientCostChart" class="max-h-80"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- 
+         * =================================================================================
+         * SECTION E: THE VERDICT & LASTING IMPACT
+         * =================================================================================
+         -->
+        <section class="slide title-slide" data-title="Section E: The Verdict">
+            <h2 class="text-2xl text-gray-400 mb-4">Section E</h2>
+            <h1 class="text-6xl text-center">The Verdict</h1>
+            <p class="subtitle text-2xl">Limitations, Evolution, and Lasting Impact</p>
+        </section>
+
+        <!-- E2: Performance Bottleneck -->
+        <section class="slide" data-title="Performance Bottleneck">
+            <h2 class="mb-12 text-center">Why MapReduce Fell Short for Modern ML</h2>
+            <div class="w-full max-w-4xl">
+                <div class="card p-8 space-y-6">
+                    <div class="flex items-center gap-4">
+                        <div class="text-secondary-color text-2xl font-bold w-1/3">Disk I/O Overhead</div>
+                        <div class="w-2/3">Each iteration reads input from and writes output to HDFS, which is extremely slow compared to memory.</div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="text-secondary-color text-2xl font-bold w-1/3">High Startup Cost</div>
+                        <div class="w-2/3">Scheduling and starting a new MapReduce job for every iteration adds significant latency.</div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="text-secondary-color text-2xl font-bold w-1/3">Rigid Data Flow</div>
+                        <div class="w-2/3">The strict Map -> Reduce pattern is not a natural fit for more complex computational graphs (e.g., in deep learning).</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- E3: Apache Spark's In-Memory Revolution -->
+        <section class="slide" data-title="Apache Spark">
+            <h2 class="mb-12 text-center">A Faster, More Flexible Successor</h2>
+            <div class="two-column max-w-7xl">
+                <div>
+                    <h3 class="text-primary-color text-2xl mb-4">In-Memory Computing</h3>
+                    <p class="mb-4">Spark introduced Resilient Distributed Datasets (RDDs), which can be cached in memory across the cluster.</p>
+                    <p>This eliminates the need for disk I/O between iterations, dramatically speeding up iterative algorithms common in machine learning.</p>
+                </div>
+                <div>
+                    <canvas id="sparkSpeedupChart" class="max-h-96"></canvas>
+                    <p class="text-xs text-center mt-2 text-gray-500">* Speedup for iterative algorithms like Logistic Regression. Source: Spark Project</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- E4: MapReduce vs Spark -->
+        <section class="slide" data-title="MapReduce vs Spark">
+            <h2 class="mb-12 text-center">Key Differences for Machine Learning</h2>
+            <div class="w-full max-w-5xl card">
+                <table class="responsive-table">
+                    <thead>
+                        <tr><th>Feature</th><th>MapReduce</th><th>Apache Spark</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Processing Model</td>
+                            <td>Batch processing, disk-based</td>
+                            <td class="text-primary-color">In-memory, micro-batch, streaming</td>
+                        </tr>
+                        <tr>
+                            <td>Performance</td>
+                            <td>Slow due to disk I/O</td>
+                            <td class="text-primary-color">Up to 100x faster for iterative tasks</td>
+                        </tr>
+                        <tr>
+                            <td>Ease of Use</td>
+                            <td>Low-level, verbose API</td>
+                            <td class="text-primary-color">High-level APIs (Scala, Python, R), interactive shell</td>
+                        </tr>
+                        <tr>
+                            <td>ML Support</td>
+                            <td>Requires custom implementation (e.g., Apache Mahout)</td>
+                            <td class="text-primary-color">Rich, integrated MLlib library</td>
+                        </tr>
+                        <tr>
+                            <td>Real-time</td>
+                            <td>Not supported</td>
+                            <td class="text-primary-color">Supported via Spark Streaming</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- E5: Real-World Case Studies -->
+        <section class="slide" data-title="Real-World Case Studies">
+            <h2 class="mb-12 text-center">MapReduce at its Peak</h2>
+            <div class="three-column max-w-7xl">
+                <div class="card">
+                    <h3 class="text-2xl mb-4">Google</h3>
+                    <ul class="list-disc list-inside text-sm space-y-2">
+                        <li>Indexing the World Wide Web.</li>
+                        <li>Building language models.</li>
+                        <li>Processing satellite imagery for Google Maps.</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3 class="text-2xl mb-4">Facebook</h3>
+                    <ul class="list-disc list-inside text-sm space-y-2">
+                        <li>Ad targeting and optimization.</li>
+                        <li>Spam detection.</li>
+                        <li>Building the social graph.</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3 class="text-2xl mb-4">Netflix</h3>
+                    <ul class="list-disc list-inside text-sm space-y-2">
+                        <li>Analyzing viewing patterns.</li>
+                        <li>Personalized recommendations.</li>
+                        <li>A/B testing for UI and content.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- E6: Legacy & Modern Alternatives -->
+        <section class="slide" data-title="Legacy & Path Forward">
+            <h2 class="mb-12 text-center">Enduring Concepts and the Path Forward</h2>
+            <div class="w-full max-w-6xl">
+                <svg viewBox="0 0 800 300" class="diagram-svg">
+                    <rect x="0" y="125" width="200" height="50" rx="5" class="box" />
+                    <text x="100" y="155" text-anchor="middle" class="text">MapReduce Concepts</text>
+                    
+                    <path d="M200 150 L300 150" class="arrow"/>
+                    
+                    <rect x="300" y="125" width="200" height="50" rx="5" class="box-alt" />
+                    <text x="400" y="155" text-anchor="middle" class="text">Apache Spark</text>
+
+                    <path d="M500 150 L580 75" class="arrow"/>
+                    <path d="M500 150 L580 150" class="arrow"/>
+                    <path d="M500 150 L580 225" class="arrow"/>
+                    
+                    <rect x="580" y="50" width="220" height="50" rx="5" class="box" />
+                    <text x="690" y="80" text-anchor="middle" class="text">Stream Processing (Flink, Kafka)</text>
+                    <rect x="580" y="125" width="220" height="50" rx="5" class="box" />
+                    <text x="690" y="155" text-anchor="middle" class="text">Serverless ML (Cloud Functions)</text>
+                    <rect x="580" y="200" width="220" height="50" rx="5" class="box" />
+                    <text x="690" y="230" text-anchor="middle" class="text">Federated Learning</text>
+                </svg>
+            </div>
+        </section>
+
+        <!-- E7: Conclusion & Key Takeaways -->
+        <section class="slide" data-title="Conclusion">
+            <h2 class="mb-12 text-center">Final Thoughts</h2>
+            <div class="two-column max-w-7xl">
+                <div class="space-y-4">
+                    <h3 class="text-2xl text-primary-color">Key Takeaways</h3>
+                    <ul class="list-disc list-inside space-y-3 text-lg">
+                        <li>MapReduce was a revolutionary paradigm for scalable, fault-tolerant data processing.</li>
+                        <li>Its core "summation" pattern is applicable to many foundational ML algorithms.</li>
+                        <li>Its disk-based, high-overhead model made it inefficient for iterative ML tasks.</li>
+                        <li>Successors like Spark built upon its core ideas, adding in-memory processing for massive speedups.</li>
+                        <li>The concepts of data parallelism and fault tolerance pioneered by MapReduce remain fundamental to big data systems today.</li>
+                    </ul>
+                </div>
+                <div class="flex flex-col items-center justify-center gap-8">
+                    <div id="qr-code-container" class="bg-white p-4 rounded-lg"></div>
+                    <p class="text-center">Further Resources</p>
+                    <div class="text-center">
+                        <h3 class="text-2xl">Thank You</h3>
+                        <p class="mt-2 text-gray-400">Contact: Presenter</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Navigation UI -->
+    <footer class="presentation-nav">
+        <div class="slide-counter">
+            <span id="current-slide">1</span> / <span id="total-slides">1</span>
+            <div class="slide-thumbnails" id="thumbnail-container">
+                <!-- Thumbnails will be generated here -->
+            </div>
+        </div>
+        <div class="nav-controls flex items-center gap-4">
+            <button id="prev-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
+                Prev
+            </button>
+            <button id="next-btn">
+                Next
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+            </button>
+            <button id="fullscreen-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m4.5 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" /></svg>
+            </button>
+        </div>
+    </footer>
+    
+    <!-- SVG Definitions for diagrams -->
+    <svg width="0" height="0" style="position:absolute">
+      <defs>
+        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="var(--accent-color)" />
+        </marker>
+      </defs>
+    </svg>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    /* * =================================================================================
+     * Presentation Controller
+     * =================================================================================
+     */
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    const totalSlidesElem = document.getElementById('total-slides');
+    const currentSlideElem = document.getElementById('current-slide');
+    const nextBtn = document.getElementById('next-btn');
+    const prevBtn = document.getElementById('prev-btn');
+    const fullscreenBtn = document.getElementById('fullscreen-btn');
+    const root = document.getElementById('presentation-root');
+    const nav = document.querySelector('.presentation-nav');
+    const thumbnailContainer = document.getElementById('thumbnail-container');
+
+    let currentSlide = 0;
+    const totalSlides = slides.length;
+
+    function init() {
+        totalSlidesElem.textContent = totalSlides;
+        setupThumbnails();
+        updateSlideClasses();
+        attachEventListeners();
+        initChartsForSlide(0);
+        initKMeansAnimation();
+        generateQRCode();
+        initConstellation();
+    }
+
+    function setupThumbnails() {
+        slides.forEach((slide, index) => {
+            const title = slide.dataset.title || `Slide ${index + 1}`;
+            const item = document.createElement('div');
+            item.className = 'thumbnail-item';
+            item.innerHTML = `<small>${index + 1}.</small>${title}`;
+            item.addEventListener('click', () => goToSlide(index));
+            thumbnailContainer.appendChild(item);
+        });
+    }
+
+    function updateSlideClasses() {
+        slides.forEach((slide, index) => {
+            slide.classList.remove('active', 'prev');
+            if (index === currentSlide) {
+                slide.classList.add('active');
+                initChartsForSlide(index);
+                // Trigger staggered animations
+                const staggerParent = slide.querySelector('.stagger-children');
+                if (staggerParent) {
+                    Array.from(staggerParent.children).forEach((child, i) => {
+                        child.style.animationDelay = `${i * 0.15}s`;
+                    });
+                }
+            } else if (index < currentSlide) {
+                slide.classList.add('prev');
+            }
+        });
+        currentSlideElem.textContent = currentSlide + 1;
+
+        // Update active thumbnail
+        const thumbs = thumbnailContainer.querySelectorAll('.thumbnail-item');
+        thumbs.forEach((thumb, index) => {
+            thumb.classList.toggle('active-thumb', index === currentSlide);
+        });
+    }
+
+    function goToSlide(slideNumber) {
+        if (slideNumber >= 0 && slideNumber < totalSlides) {
+            currentSlide = slideNumber;
+            updateSlideClasses();
+        }
+    }
+
+    function nextSlide() {
+        goToSlide(currentSlide + 1);
+    }
+
+    function prevSlide() {
+        goToSlide(currentSlide - 1);
+    }
+
+    function attachEventListeners() {
+        nextBtn.addEventListener('click', nextSlide);
+        prevBtn.addEventListener('click', prevSlide);
+        fullscreenBtn.addEventListener('click', toggleFullScreen);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+                e.preventDefault();
+                nextSlide();
+            } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+                e.preventDefault();
+                prevSlide();
+            } else if (e.key === 'f' || e.key === 'F11') {
+                e.preventDefault();
+                toggleFullScreen();
+            }
+        });
+        
+        // Click/tap to advance
+        root.addEventListener('click', (e) => {
+            // Avoid advancing when clicking on interactive elements
+            if (e.target.closest('button, a, .card, .code-block, .nav-controls')) return;
+            nextSlide();
+        });
+
+        // Hide nav after a while
+        let navTimeout;
+        document.addEventListener('mousemove', () => {
+            nav.style.opacity = '1';
+            clearTimeout(navTimeout);
+            navTimeout = setTimeout(() => {
+                nav.style.opacity = '0';
+            }, 3000);
+        });
+
+        // Copy code buttons
+        document.querySelectorAll('.copy-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetId = btn.dataset.target;
+                const codeElement = document.getElementById(targetId);
+                if (codeElement) {
+                    navigator.clipboard.writeText(codeElement.innerText).then(() => {
+                        const originalText = btn.innerText;
+                        btn.innerText = 'Copied!';
+                        setTimeout(() => { btn.innerText = originalText; }, 2000);
+                    });
+                }
+            });
+        });
+    }
+
+    function toggleFullScreen() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+            });
+        } else {
+            document.exitFullscreen();
+        }
+    }
+
+    /* * =================================================================================
+     * Chart Initializations
+     * =================================================================================
+     */
+    const chartInstances = {};
+
+    function initChartsForSlide(slideIndex) {
+        const slide = slides[slideIndex];
+        const canvas = slide.querySelector('canvas');
+        if (!canvas || chartInstances[canvas.id]) return; // Don't re-initialize
+
+        const chartId = canvas.id;
+        const ctx = canvas.getContext('2d');
+        let chartConfig;
+
+        // Chart.js global settings
+        Chart.defaults.color = 'rgba(224, 224, 224, 0.8)';
+        Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.1)';
+        Chart.defaults.font.family = "'Inter', sans-serif";
+
+        switch (chartId) {
+            case 'datasetGrowthChart':
+                chartConfig = getChartConfig({
+                    type: 'line',
+                    labels: ['2005', '2008', '2011', '2014', '2017', '2020', '2024'],
+                    datasets: [{
+                        label: 'Global Dataset Size (Exabytes)',
+                        data: [0.1, 0.5, 2, 8, 25, 60, 180],
+                        borderColor: 'var(--primary-color)',
+                        backgroundColor: 'rgba(0, 242, 234, 0.2)',
+                        fill: true,
+                        tension: 0.4,
+                    }],
+                    title: 'The Growth of Data Volume'
+                });
+                break;
+            case 'combinerChart':
+                chartConfig = getChartConfig({
+                    type: 'bar',
+                    labels: ['Network Shuffle Size'],
+                    datasets: [
+                        { label: 'Without Combiner', data: [100], backgroundColor: 'var(--secondary-color)' },
+                        { label: 'With Combiner', data: [35], backgroundColor: 'var(--primary-color)' }
+                    ],
+                    title: 'Combiner Impact on Shuffle Size (GB)'
+                });
+                break;
+            case 'partitionerChart':
+                chartConfig = getChartConfig({
+                    type: 'bar',
+                    labels: ['Reducer 1', 'Reducer 2', 'Reducer 3', 'Reducer 4'],
+                    datasets: [{
+                        label: 'Keys per Reducer',
+                        data: [2510, 2490, 2505, 2495],
+                        backgroundColor: 'var(--accent-color)',
+                    }],
+                    title: 'Hash Partitioner Key Distribution'
+                });
+                break;
+            case 'speculativeChart':
+                chartConfig = getChartConfig({
+                    type: 'line',
+                    labels: ['Without Speculation', 'With Speculation'],
+                    datasets: [
+                        { label: 'Job Latency (s)', data: [300, 220], borderColor: 'var(--primary-color)', yAxisID: 'y' },
+                        { label: 'Resource Usage (%)', data: [100, 115], borderColor: 'var(--secondary-color)', yAxisID: 'y1' }
+                    ],
+                    title: 'Speculative Execution Tradeoff',
+                    yAxes: { y: { position: 'left' }, y1: { position: 'right', grid: { drawOnChartArea: false } } }
+                });
+                break;
+            case 'wordCountChart':
+                chartConfig = getChartConfig({
+                    type: 'bar',
+                    indexAxis: 'y',
+                    labels: ['the', 'and', 'to', 'of', 'a', 'in', 'that', 'is', 'it', 'for'],
+                    datasets: [{
+                        label: 'Frequency',
+                        data: [1850, 1520, 1480, 1200, 1150, 980, 850, 760, 720, 650],
+                        backgroundColor: 'var(--primary-color)',
+                    }],
+                    title: 'Top 10 Word Frequencies'
+                });
+                break;
+            case 'iterationCostChart':
+                chartConfig = getChartConfig({
+                    type: 'bar',
+                    labels: ['Iteration 1', 'Iteration 2', 'Iteration 3'],
+                    datasets: [
+                        { label: 'HDFS I/O (s)', data: [25, 25, 25], backgroundColor: 'var(--secondary-color)' },
+                        { label: 'Compute (s)', data: [15, 15, 15], backgroundColor: 'var(--primary-color)' }
+                    ],
+                    title: 'Per-Iteration Cost Breakdown',
+                    stacked: true
+                });
+                break;
+            case 'gradientCostChart':
+                chartConfig = getChartConfig({
+                    type: 'line',
+                    labels: ['Iter 1', 'Iter 2', 'Iter 3', 'Iter 4', 'Iter 5'],
+                    datasets: [{
+                        label: 'Loss',
+                        data: [0.8, 0.65, 0.52, 0.41, 0.32],
+                        borderColor: 'var(--primary-color)',
+                        tension: 0.1
+                    }],
+                    title: 'Loss Reduction per Iteration'
+                });
+                break;
+            case 'sparkSpeedupChart':
+                chartConfig = getChartConfig({
+                    type: 'bar',
+                    labels: ['Logistic Regression (10 Iterations)'],
+                    datasets: [
+                        { label: 'MapReduce', data: [110], backgroundColor: 'var(--secondary-color)' },
+                        { label: 'Spark', data: [1.2], backgroundColor: 'var(--primary-color)' }
+                    ],
+                    title: 'Runtime (seconds)'
+                });
+                break;
+        }
+
+        if (chartConfig) {
+            chartInstances[chartId] = new Chart(ctx, chartConfig);
+        }
+    }
+
+    function getChartConfig({ type, labels, datasets, title, indexAxis = 'x', stacked = false, yAxes = {} }) {
+        // Resolve CSS variables
+        const style = getComputedStyle(document.documentElement);
+        datasets.forEach(ds => {
+            if (typeof ds.backgroundColor === 'string' && ds.backgroundColor.includes('var(--')) {
+                const match = ds.backgroundColor.match(/--[a-zA-Z-]+/);
+                if (match) {
+                    ds.backgroundColor = style.getPropertyValue(match[0]).trim();
+                }
+            }
+            if (typeof ds.borderColor === 'string' && ds.borderColor.includes('var(--')) {
+                const match = ds.borderColor.match(/--[a-zA-Z-]+/);
+                if (match) {
+                    ds.borderColor = style.getPropertyValue(match[0]).trim();
+                }
+            }
+        });
+
+        return {
+            type: type,
+            data: { labels, datasets },
+            options: {
+                indexAxis: indexAxis,
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: {
+                    duration: 1000,
+                    easing: 'easeOutQuart'
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            color: 'rgba(224, 224, 224, 0.9)'
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: title,
+                        color: 'white',
+                        font: { size: 16 }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(10, 15, 31, 0.8)',
+                        titleColor: 'white',
+                        bodyColor: '#e0e0e0',
+                        borderColor: 'var(--border-color)',
+                        borderWidth: 1
+                    }
+                },
+                scales: {
+                    x: { stacked, grid: { color: 'rgba(255, 255, 255, 0.1)' } },
+                    y: { ...yAxes.y, stacked, grid: { color: 'rgba(255, 255, 255, 0.1)' } },
+                    ...Object.keys(yAxes).filter(k => k !== 'y').reduce((acc, key) => {
+                        acc[key] = yAxes[key];
+                        return acc;
+                    }, {})
+                }
+            }
+        };
+    }
+    
+    /* * =================================================================================
+     * Interactive Animations
+     * =================================================================================
+     */
+    function initKMeansAnimation() {
+        const container = document.getElementById('kmeans-animation');
+        if (!container) return;
+
+        const numPoints = 100;
+        const numCentroids = 3;
+        const colors = ['#00f2ea', '#ff4d9e', '#f2b705'];
+        let points = [];
+        let centroids = [];
+
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute('viewBox', '0 0 500 300');
+        svg.style.width = '100%';
+        svg.style.height = '100%';
+        container.appendChild(svg);
+
+        // 1. Initialize points and centroids
+        for (let i = 0; i < numPoints; i++) {
+            points.push({
+                x: Math.random() * 480 + 10,
+                y: Math.random() * 280 + 10,
+                cluster: -1,
+                el: document.createElementNS("http://www.w3.org/2000/svg", "circle")
+            });
+            points[i].el.setAttribute('cx', points[i].x);
+            points[i].el.setAttribute('cy', points[i].y);
+            points[i].el.setAttribute('r', 3);
+            points[i].el.setAttribute('fill', '#e0e0e0');
+            svg.appendChild(points[i].el);
+        }
+        for (let i = 0; i < numCentroids; i++) {
+            centroids.push({
+                x: Math.random() * 480 + 10,
+                y: Math.random() * 280 + 10,
+                el: document.createElementNS("http://www.w3.org/2000/svg", "rect")
+            });
+            centroids[i].el.setAttribute('x', centroids[i].x - 5);
+            centroids[i].el.setAttribute('y', centroids[i].y - 5);
+            centroids[i].el.setAttribute('width', 10);
+            centroids[i].el.setAttribute('height', 10);
+            centroids[i].el.setAttribute('fill', colors[i]);
+            centroids[i].el.setAttribute('stroke', 'white');
+            centroids[i].el.setAttribute('stroke-width', 2);
+            svg.appendChild(centroids[i].el);
+        }
+
+        function distance(p1, p2) {
+            return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+        }
+
+        function assignStep() {
+            points.forEach(p => {
+                let minDist = Infinity;
+                let bestCluster = -1;
+                centroids.forEach((c, i) => {
+                    const d = distance(p, c);
+                    if (d < minDist) {
+                        minDist = d;
+                        bestCluster = i;
+                    }
+                });
+                p.cluster = bestCluster;
+                p.el.setAttribute('fill', colors[p.cluster]);
+                p.el.style.transition = 'fill 0.5s ease';
+            });
+        }
+
+        function updateStep() {
+            centroids.forEach((c, i) => {
+                const clusterPoints = points.filter(p => p.cluster === i);
+                if (clusterPoints.length > 0) {
+                    const sumX = clusterPoints.reduce((sum, p) => sum + p.x, 0);
+                    const sumY = clusterPoints.reduce((sum, p) => sum + p.y, 0);
+                    c.x = sumX / clusterPoints.length;
+                    c.y = sumY / clusterPoints.length;
+                    c.el.setAttribute('x', c.x - 5);
+                    c.el.setAttribute('y', c.y - 5);
+                    c.el.style.transition = 'x 0.8s ease, y 0.8s ease';
+                }
+            });
+        }
+        
+        let iteration = 0;
+        const maxIterations = 5;
+        function runIteration() {
+            if (iteration >= maxIterations) return;
+            assignStep();
+            setTimeout(() => {
+                updateStep();
+                iteration++;
+                setTimeout(runIteration, 1500);
+            }, 1000);
+        }
+        
+        // Start animation when slide becomes active
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                setTimeout(runIteration, 1000);
+                observer.disconnect();
+            }
+        }, { threshold: 0.5 });
+        observer.observe(container);
+    }
+    
+    function initConstellation() {
+        const container = document.getElementById('constellation-bg');
+        if (!container) return;
+        const canvas = document.createElement('canvas');
+        container.appendChild(canvas);
+        const ctx = canvas.getContext('2d');
+        let w, h, particles, animationFrameId;
+
+        function resize() {
+            w = canvas.width = container.offsetWidth;
+            h = canvas.height = container.offsetHeight;
+        }
+
+        function initParticles() {
+            particles = [];
+            let particleCount = Math.floor(w * h / 10000);
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: Math.random() * w,
+                    y: Math.random() * h,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5,
+                    radius: Math.random() * 1.5 + 0.5
+                });
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, w, h);
+            ctx.fillStyle = 'white';
+            particles.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                p.x += p.vx;
+                p.y += p.vy;
+
+                if (p.x < 0 || p.x > w) p.vx *= -1;
+                if (p.y < 0 || p.y > h) p.vy *= -1;
+            });
+            
+            ctx.strokeStyle = 'rgba(0, 242, 234, 0.1)';
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dist = Math.sqrt(Math.pow(particles[i].x - particles[j].x, 2) + Math.pow(particles[i].y - particles[j].y, 2));
+                    if (dist < 100) {
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+            animationFrameId = requestAnimationFrame(draw);
+        }
+        
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                if (!animationFrameId) {
+                    resize();
+                    initParticles();
+                    draw();
+                }
+            } else {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+        }, { threshold: 0.1 });
+        observer.observe(container);
+        window.addEventListener('resize', () => {
+             if (container.offsetParent !== null) { // is visible
+                resize();
+                initParticles();
+             }
+        });
+    }
+
+    function generateQRCode() {
+        const container = document.getElementById('qr-code-container');
+        if (!container) return;
+        // This is a simple, hand-crafted SVG QR code for a generic URL.
+        const qrSVG = `
+        <svg width="160" height="160" viewBox="0 0 25 25" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+            <path fill="white" d="M0 0h25v25H0z"/>
+            <path fill="var(--primary-color)" d="M2 2h7v7H2z m1 1h5v5H3z m9 0h7v7h-7z m1 1h5v5h-5z M2 16h7v7H2z m1 1h5v5H3z m2-12h1v1h-1z m2 0h1v1h-1z m-3 2h1v1h-1z m2 0h1v1h-1z m-1 1h1v1h-1z m10-3h1v1h-1z m-1 1h1v1h-1z m2 0h1v1h-1z m-3 2h1v1h-1z m1 1h1v1h-1z m-10 9h1v1h-1z m-1 1h1v1h-1z m2 0h1v1h-1z m-1 2h1v1h-1z m1 1h1v1h-1z m6-5h1v1h-1z m1 0h1v1h-1z m-3 1h1v1h-1z m1 0h1v1h-1z m1 0h1v1h-1z m1 0h1v1h-1z m-4 1h1v1h-1z m1 1h1v1h-1z m1 1h1v1h-1z m1 1h1v1h-1z m-3 1h1v1h-1z m-1 1h1v1h-1z m-1 1h1v1h-1z m1 0h1v1h-1z"/>
+        </svg>`;
+        container.innerHTML = qrSVG;
+        // Manually set the fill color since it's inside an innerHTML string
+        const path = container.querySelector('path:last-child');
+        if(path) {
+            const style = getComputedStyle(document.documentElement);
+            path.style.fill = style.getPropertyValue('--primary-color').trim();
+        }
+    }
+
+    // Initialize the presentation
+    init();
+});
+</script>
+
+</body>
+</html>
